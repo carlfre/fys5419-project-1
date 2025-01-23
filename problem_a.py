@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import qiskit as qk
 
 
-from state_initialization import one_qubit_basis, bell_psi_minus
+from state_initialization import one_qubit_basis, bell_psi_plus
 from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, cnot_gate
 
 def measure_first_qubit(state: np.ndarray) -> np.ndarray:
@@ -44,16 +44,14 @@ def problem_a() -> None:
             after_gate = gate @ state
             print(f"{gate_name}{ket_string} = transpose({after_gate})")
 
-    psi_minus = bell_psi_minus()
+    psi_plus = bell_psi_plus()
 
     I = identity_gate()
     H = hadamard_gate()
 
     CNOT = cnot_gate()
 
-    after_gates = CNOT @ np.kron(H, I) @ psi_minus
-
-    print(f"CNOT(H ⊗ I) |ψ-> = transpose({after_gates})")
+    after_gates = CNOT @ np.kron(H, H) @ psi_plus
 
 
 
