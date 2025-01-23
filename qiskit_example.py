@@ -24,8 +24,8 @@ transpiled_qc = transpile(qc, backend)
 job = backend.run(transpiled_qc, backend, shots=2000) # shots is number of trials
 #results = job.result()[0].data["c"z].get_counts()
 results = job.result() #<--- denne linja er problemet
-#counts = results.get_counts(qc)
+counts = results.get_counts(qc)
 
 # make histogram
-# plot_histogram(counts)
-# plt.show()
+plot_histogram(counts)
+plt.show()
