@@ -40,9 +40,11 @@ def problem_b() -> None:
 
     plt.axvline(x=2/3, color='r', linestyle='--', label=r"$\lambda = \frac{2}{3}$")
 
+    plt.title("Eigenenergy vs. $\\lambda$")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
     plt.legend()
+    plt.savefig("images/problem_b.png")
     plt.show()
        
 problem_b()
