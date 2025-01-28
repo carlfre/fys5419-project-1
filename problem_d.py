@@ -70,6 +70,7 @@ for n in range(n_lambda_values):
 plt.title("Eigenvalues")
 plt.ylabel("Eigenenergy")
 plt.xlabel(r"$\lambda$")
+plt.savefig("images/problem_d_eigenvalues.png")
 plt.show()
 
 
@@ -77,6 +78,7 @@ plt.title("Entanglement Entropy")
 plt.xlabel(r"$\lambda$")
 plt.ylabel("Entropy")
 plt.plot(lambdas, entropies)
+plt.savefig("images/problem_d_entropy.png")
 plt.show()
 
 

@@ -6,7 +6,7 @@ import qiskit as qk
 from state_initialization import one_qubit_basis, bell_psi_plus
 from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, cnot_gate
 
-def measure_first_qubit(state: np.ndarray) -> np.ndarray:
+def measure_first_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
     alpha, beta, gamma, delta = state
 
     prob_0 = np.abs(alpha)**2 + np.abs(beta)**2
@@ -19,7 +19,7 @@ def measure_first_qubit(state: np.ndarray) -> np.ndarray:
         return 1, new_state / np.linalg.norm(new_state)
     
 
-def measure_second_qubit(state: np.ndarray) -> np.ndarray:
+def measure_second_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
     alpha, beta, gamma, delta = state
 
     prob_0 = np.abs(alpha)**2 + np.abs(gamma)**2
@@ -33,6 +33,8 @@ def measure_second_qubit(state: np.ndarray) -> np.ndarray:
 
 
 def problem_a() -> None:
+    np.random.seed(973)
+    
     zero, one = one_qubit_basis()
     X = pauli_x_gate()
     Y = pauli_y_gate()
@@ -45,20 +47,14 @@ def problem_a() -> None:
             print(f"{gate_name}{ket_string} = transpose({after_gate})")
 
     psi_plus = bell_psi_plus()
-
-    I = identity_gate()
     H = hadamard_gate()
-
     CNOT = cnot_gate()
 
-    after_gates = CNOT @ np.kron(H, H) @ psi_plus
+    result = CNOT @ np.kron(H, H) @ psi_plus
 
+    N = 1000
 
-
-
-    N = 2000
-
-    results = {
+    measurements = {
         (0, 0): 0,
         (0, 1): 0,
         (1, 0): 0,
@@ -66,13 +62,13 @@ def problem_a() -> None:
     }
 
     for i in range(N):
-        first_qubit, after_first_measurement = measure_first_qubit(after_gates)
+        first_qubit, after_first_measurement = measure_first_qubit(result)
         second_qubit, after_second_measurement = measure_second_qubit(after_first_measurement)
-        results[(first_qubit, second_qubit)] += 1
+        measurements[(first_qubit, second_qubit)] += 1
 
     # Convert the tuple keys into string labels for better display in the plot
-    labels = [str(key) for key in results.keys()]
-    counts = list(results.values())
+    labels = [str(key) for key in measurements.keys()]
+    counts = list(measurements.values())
 
     # Create the bar chart
     plt.figure(figsize=(8, 6))
@@ -88,7 +84,7 @@ def problem_a() -> None:
     plt.xlabel("Measurement Outcome (First Qubit, Second Qubit)")
     plt.ylabel("Counts")
     plt.ylim(0, max(counts) * 1.2)  # Add some headroom for text labels
-
+    plt.savefig("images/problem_a.png")
     # Show the plot
     plt.show()
 
