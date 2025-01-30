@@ -2,24 +2,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def Jz(J):
-    m_values = np.arange(J, -J-1, -1)
-    return np.diag(m_values)
+# Define Pauli matrices and identity matrix
+sigma_x = np.array([[0, 1], [1, 0]])
+sigma_y = np.array([[0, -1j], [1j, 0]])
+sigma_z = np.array([[1, 0], [0, -1]])
+identity = np.array([[1, 0], [0, 1]])
 
+epsilon = 0.5
+W = 0
+V = 1
 
-def J_plus(J):
-    dim = int(2 * J + 1)
-    J_plus_matrix = np.zeros((dim, dim))
-    for m in range(dim - 1):
-        value = (J - m) * (J + m + 1)
-        if value > 0:
-            J_plus_matrix[m, m + 1] = np.sqrt(value)
-    return J_plus_matrix
+HJ1 = np.array([[-epsilon, 0, -V],
+              [0, 0, 0],
+              [-V, 0, epsilon],])
 
-
-def J_minus(J):
-    return J_plus(J).T
-
+HJ2 = np.array([[-2*epsilon, 0, np.sqrt(6)*V, 0, 0],
+              [0, -epsilon + 3*W, 0, 3*V, 0],
+              [np.sqrt(6)*V, 0, 4*W, 0, np.sqrt(6)*V],
+              [0, 3*V, 0, -epsilon + 3*W, 0],
+              [0, 0, np.sqrt(6)*V, 0, 2*epsilon],])
 
 def problem_f() -> None:
 
@@ -30,27 +31,28 @@ def problem_f() -> None:
     eigenval_J2 = []
 
     for i in interaction_strengths: 
-        # Define the operators for J = 1
-        J = 1
+        # Defining W
+        W = 0
+        
+        # Placeholder for interaction strength
+        V = i
 
-        # Hamiltonian for J = 1
-        V = i  # Example interaction strength
-        H = - epsilon * Jz(J) + 0.5 * V * (np.dot(J_plus(J), J_plus(J)) + np.dot(J_minus(J), J_minus(J)))
-
+        # Rewrite HJ1 and HJ2 in terms of Pauli matrices
+        HJ1_rewritten = -epsilon * np.kron(sigma_z, identity) - V * np.kron(sigma_x, identity)
+       
         # Calculate eigenvalues
-        w, v = np.linalg.eigh(H)
+        w, v = np.linalg.eigh(HJ1_rewritten)
         
         # Storing eigenvalues for J = 1
         eigenval_J1.append(np.min(w))
 
-        # Define the operators for J = 2
-        J2 = 2
-
-        # Hamiltonian for J = 2
-        H_J2 = - epsilon * Jz(J2) + 0.5 * V * (np.dot(J_plus(J2), J_plus(J2)) + np.dot(J_minus(J2), J_minus(J2)))
+        # Rewrite HJ2 for J = 2 with N = 4 particles
+        HJ2_rewritten = (-2 * epsilon * np.kron(sigma_z, np.kron(identity, identity)) +
+                  np.sqrt(6) * V * np.kron(sigma_x, np.kron(identity, identity)) +
+                  3 * W * np.kron(identity, np.kron(sigma_z, identity)))
 
         # Calculate eigenvalues for J = 2
-        w_J2, v_J2 = np.linalg.eigh(H_J2)
+        w_J2, v_J2 = np.linalg.eigh(HJ2_rewritten)
 
         # Storing eigenvalues for J = 2
         eigenval_J2.append(np.min(w_J2))
