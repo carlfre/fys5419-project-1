@@ -4,7 +4,7 @@ import qiskit as qk
 
 
 from state_initialization import one_qubit_basis, bell_psi_plus
-from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, cnot_gate
+from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, phase_gate, hadamard_gate, cnot_gate
 
 def measure_first_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
     alpha, beta, gamma, delta = state
@@ -48,7 +48,13 @@ def problem_a() -> None:
 
     psi_plus = bell_psi_plus()
     H = hadamard_gate()
+    P = phase_gate(np.pi/2)
     CNOT = cnot_gate()
+
+    for ket_string, state in zip(["|0>", "|1>"], [zero, one]):
+        for gate_name, gate in zip(["Hadamard", "Phase"], [H, P]):
+            after_gate = gate @ state
+            print(f"{gate_name}{ket_string} = transpose({after_gate})")
 
     result = CNOT @ np.kron(H, H) @ psi_plus
 
