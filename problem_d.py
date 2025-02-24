@@ -59,7 +59,7 @@ for n, lmbda in enumerate(lambdas):
 
 for i in range(4):
     plt.plot(lambdas, eigvals[i, :], c="g")
-plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = \frac{2}{3}$")
+plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = 0.4$")
 
 
 entropies = []
@@ -70,6 +70,7 @@ for n in range(n_lambda_values):
 plt.title("Eigenenergy vs. $\lambda$")
 plt.ylabel("Eigenenergy")
 plt.xlabel(r"$\lambda$")
+plt.legend()
 plt.savefig("images/problem_d_eigenvalues.png")
 plt.show()
 
@@ -78,7 +79,8 @@ plt.title("Entanglement Entropy")
 plt.xlabel(r"$\lambda$")
 plt.ylabel("Entropy")
 plt.plot(lambdas, entropies)
-plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = \frac{2}{3}$")
+plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = 0.4$")
+plt.legend()
 plt.savefig("images/problem_d_entropy.png")
 plt.show()
 
