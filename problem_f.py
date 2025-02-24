@@ -60,7 +60,7 @@ def problem_f() -> None:
     plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
     plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
 
-    plt.title("Eigenvalues vs interaction strengths for Lipkin Hamiltonian")
+    plt.title("Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
     plt.legend()

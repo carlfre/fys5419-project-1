@@ -81,9 +81,9 @@ def problem_g():
     plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
     plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
 
-    plt.title("Eigenvalues vs Interaction strength with VQE solution for Lipkin Hamiltonian")
-    plt.xlabel("Interaction strength")
-    plt.ylabel("Eigenvalue")
+    plt.title("Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with VQE")
+    plt.xlabel(r"$\lambda$")
+    plt.ylabel("Eigenenergy")
     plt.legend()
     plt.savefig("images/problem_g.png")
     plt.show()
