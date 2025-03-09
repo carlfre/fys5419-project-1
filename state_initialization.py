@@ -29,3 +29,5 @@ def bell_states() -> list[np.ndarray]:
         bell_psi_plus(),
         bell_psi_minus()
     ]
+
+

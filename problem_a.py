@@ -48,11 +48,11 @@ def problem_a() -> None:
 
     psi_plus = bell_psi_plus()
     H = hadamard_gate()
-    P = phase_gate(np.pi/2)
+    S = phase_gate()
     CNOT = cnot_gate()
 
     for ket_string, state in zip(["|0>", "|1>"], [zero, one]):
-        for gate_name, gate in zip(["Hadamard", "Phase"], [H, P]):
+        for gate_name, gate in zip(["Hadamard", "Phase"], [H, S]):
             after_gate = gate @ state
             print(f"{gate_name}{ket_string} = transpose({after_gate})")
 
@@ -112,7 +112,7 @@ def problem_a() -> None:
 
 
 
-
-problem_a()
+if __name__ == "__main__":
+    problem_a()
 
 # def bell_states()
