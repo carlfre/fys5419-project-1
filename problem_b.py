@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gates import pauli_x_gate, pauli_y_gate, pauli_z_gate
+from utils import write_to_csv
 
 
 sigma_x = pauli_x_gate()
@@ -46,5 +47,14 @@ def problem_b() -> None:
     plt.legend()
     plt.savefig("images/problem_b.png")
     plt.show()
+
+    # Take existing data lists and choose every sixteenth data point
+    lambdas = [lambdas[min(round(i * (len(lambdas) / 15)), len(lambdas) - 1)] for i in range(16)]
+    lower_eigs = [lower_eigs[min(round(i * (len(lower_eigs) / 15)), len(lower_eigs) - 1)] for i in range(16)]
+
+    assert len(lambdas) == 16, "wrong length"
+    assert len(lower_eigs) == 16, "wrong length"
+
+    write_to_csv([lambdas, lower_eigs], ["lambdas", "lower_eigs"], "output/np_1_qubit.csv")    
        
 problem_b()

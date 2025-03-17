@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gates import pauli_x_gate, pauli_z_gate
+from utils import write_to_csv
 
 def entanglement_entropy(state: np.ndarray) -> float:
     if state.shape != (4,):
@@ -67,7 +68,7 @@ for n in range(n_lambda_values):
     S = entanglement_entropy(ground_states[:, n])
     entropies.append(S)
 
-plt.title("Eigenenergy vs. $\lambda$")
+plt.title(r"Eigenenergy vs. $\lambda$")
 plt.ylabel("Eigenenergy")
 plt.xlabel(r"$\lambda$")
 plt.legend()
@@ -84,5 +85,6 @@ plt.legend()
 plt.savefig("images/problem_d_entropy.png")
 plt.show()
 
+lower_eigs = np.min(eigvals, axis=0)
 
-
+write_to_csv([lambdas, lower_eigs], ["lambdas", "lower_eigs"], "output/np_simple_2_qubit.csv")  
