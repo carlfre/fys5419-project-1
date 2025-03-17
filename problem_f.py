@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from utils import write_to_csv
 
 # Define Pauli matrices and identity matrix
 sigma_x = np.array([[0, 1], [1, 0]])
@@ -60,11 +61,14 @@ def problem_f() -> None:
     plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
     plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
 
-    plt.title("Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians")
+    plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
     plt.legend()
     plt.savefig("images/problem_f.png")
     plt.show()
+
+    write_to_csv([interaction_strengths, eigenval_J1], ["lambdas", "J1"], "output/np_lipkin_small.csv")
+    write_to_csv([interaction_strengths, eigenval_J2], ["lambdas", "J2"], "output/np_lipkin_big.csv")
 
 problem_f()

@@ -48,44 +48,75 @@ optimizer = ADAM(maxiter=5000)
 
 
 def problem_g():
+    # get numpy and our code data
+    numpy_data_small = np.genfromtxt("output/np_lipkin_small.csv", delimiter=",", skip_header=1)
+    numpy_data_big = np.genfromtxt("output/np_lipkin_big.csv", delimiter=",", skip_header=1)
 
-    interaction_strengths = np.linspace(0, 1, 10)
-    J = [1, 2]
-    qbits = [2,4]
+    lambdas_np_small = numpy_data_small[:, 0]
+    lambdas_np_big = numpy_data_big[:, 0]
+    energy_np_small = numpy_data_small[:, 1]
+    energy_np_big = numpy_data_big[:, 1]
+
+    our_code_data_small = np.genfromtxt("output/lipkin_small.csv", delimiter=",", skip_header=1)
+    our_code_data_big = np.genfromtxt("output/lipkin_big.csv", delimiter=",", skip_header=1)
+
+    lambdas_our_code_small = our_code_data_small[:, 0]
+    lambdas_our_code_big = our_code_data_big[:, 0]
+    energy_our_code_small = our_code_data_small[:, 1]
+    energy_our_code_big = our_code_data_big[:, 1]
+
+    # make plot and place points on top
+    plt.plot(lambdas_np_small, energy_np_small, label=r"$J = 1$ with NumPy", color="seagreen", zorder=1)
+    plt.plot(lambdas_np_big, energy_np_big, label=r"$J = 2$ with NumPy", color="royalblue", zorder=2)
     
-    eigenval_J1 = []
-    eigenval_J2 = []
+    plt.scatter(lambdas_our_code_small, energy_our_code_small, label=r"$J = 1$ with VQE (our code)", marker="x", c="coral", zorder=3)
+    plt.scatter(lambdas_our_code_big, energy_our_code_big, label=r"$J = 2$ with VQE (our code)", marker="x", c="crimson", zorder=4)
 
-    for j, k in zip(J, qbits): 
-
-        # Define the ansatz
-        ansatz = TwoLocal(num_qubits=k, rotation_blocks='ry', entanglement_blocks='cz', reps=1, entanglement='linear')
-            
-        for i in interaction_strengths:
-    
-            # Define the Hamiltonian 
-            H_op = SparseLipkinHamiltonian(j, i)
-
-            # Set up the VQE
-            vqe = VQE(estimator, ansatz, optimizer)
-
-            # Run the VQE
-            result = vqe.compute_minimum_eigenvalue(H_op)
-
-            if j == 1:
-                eigenval_J1.append(result.eigenvalue)
-            else:
-                eigenval_J2.append(result.eigenvalue)
-
-
-    plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
-    plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
-
-    plt.title("Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with VQE")
+    plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with NumPy methods and VQE")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
     plt.legend()
-    plt.savefig("images/problem_g.png")
+    plt.savefig("images/problem_g_our_code_vs_numpy.png")
     plt.show()
+
+    # previous version plot with Qiskit results only (uncomment if changes need to be made, takes time to run)
+    # interaction_strengths = np.linspace(0, 1, 10)
+    # J = [1, 2]
+    # qbits = [2,4]
+    
+    # eigenval_J1 = []
+    # eigenval_J2 = []
+
+    # for j, k in zip(J, qbits): 
+
+    #     # Define the ansatz
+    #     ansatz = TwoLocal(num_qubits=k, rotation_blocks='ry', entanglement_blocks='cz', reps=1, entanglement='linear')
+            
+    #     for i in interaction_strengths:
+    
+    #         # Define the Hamiltonian 
+    #         H_op = SparseLipkinHamiltonian(j, i)
+
+    #         # Set up the VQE
+    #         vqe = VQE(estimator, ansatz, optimizer)
+
+    #         # Run the VQE
+    #         result = vqe.compute_minimum_eigenvalue(H_op)
+
+    #         if j == 1:
+    #             eigenval_J1.append(result.eigenvalue)
+    #         else:
+    #             eigenval_J2.append(result.eigenvalue)
+
+
+    # plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
+    # plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
+
+    # plt.title("Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with VQE")
+    # plt.xlabel(r"$\lambda$")
+    # plt.ylabel("Eigenenergy")
+    # plt.legend()
+    # plt.savefig("images/problem_g.png")
+    # plt.show()
 
 problem_g()
