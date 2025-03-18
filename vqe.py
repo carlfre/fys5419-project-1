@@ -1,441 +1,315 @@
-#%%
 import multiprocessing
-from typing import Callable
 
 import numpy as np
 from scipy.optimize import minimize
 
-from ansatzes import hardware_efficient_2_qubit, hardware_efficient_4_qubit
-from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, cnot_gate, multi_kron, SWAP_gate, CX_10_gate, phase_gate
+from gates import multi_kron, identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, SWAP_gate, CX_10_gate, phase_gate
+from ansatzes import one_qubit_ansatz, hardware_efficient_2_qubit_ansatz, hardware_efficient_4_qubit_ansatz, repeated_hae_gate_4_qubit_ansatz
 from utils import write_to_csv
-
-#%%
-
-
-def measure_qubit_one(state: np.ndarray) -> int:
-    dim = state.shape[0]
-    if dim % 2 == 1:
-        raise ValueError("State vector must have even dimension")
-    prob_0 = sum(np.abs(state[:dim//2])**2)
-    if np.random.rand() < prob_0:
-        return 0
-    else:
-        return 1
-    
-
-
 
 I, X, Y, Z, H, SWAP, CX_10, S = identity_gate(), pauli_x_gate(), pauli_y_gate(), pauli_z_gate(), hadamard_gate(), SWAP_gate(), CX_10_gate(), phase_gate()
 
 
-def Z_measurement_to_energy(measurement: int) -> float:
-    if measurement == 0:
-        return 1
+def measure_first_qubit(ket: np.ndarray, n_shots: int) -> np.ndarray:
+    """Measures the first qubit of a collection of states
+
+    """
+    dim = ket.shape[0]
+    probs = np.abs(ket)**2
+    first_qubit_eq_0_prob = np.sum(probs[:dim//2])
+    uniform_samples = np.random.rand(n_shots)
+    return np.where(uniform_samples < first_qubit_eq_0_prob, 0, 1)
+
+def measurement_to_energy(measurements: np.ndarray):
+    return -2* measurements.mean() + 1
+
+
+
+def estimate_pauli_expval(psi_initial: np.ndarray, U: np.ndarray, n_shots: int) -> float:
+    measurements = measure_first_qubit(U @ psi_initial, n_shots)
+    return measurement_to_energy(measurements)
+
+
+def vqe_simple_1_qubit_hamiltonian(
+    E1: float,
+    E2: float,
+    V11: float,
+    V22: float,
+    V_offdiag: float,
+    lmbda: float,
+    n_shots: int = 10_000,
+) -> float:
+    
+    Eps = (E1 + E2) / 2
+    omega = (E1 - E2) / 2
+
+    c = (V11 + V22) / 2
+    omega_z = (V11 - V22) / 2
+    omega_x = V_offdiag
+
+    U_Z = I
+    U_X = H
+
+    def expected_value(theta: np.ndarray, n_shots: int) -> float:
+        non_interacting_energy = 0
+        interacting_energy = 0
+
+        ket = one_qubit_ansatz(*theta)
+
+        non_interacting_energy += Eps
+        non_interacting_energy += omega * estimate_pauli_expval(ket, U_Z, n_shots)
+
+        interacting_energy += c
+        interacting_energy += omega_x * estimate_pauli_expval(ket, U_X, n_shots)
+        interacting_energy += omega_z * estimate_pauli_expval(ket, U_Z, n_shots)
+
+        return non_interacting_energy + lmbda * interacting_energy
+    
+    theta0 = np.random.rand(2) * (2 * np.pi) # Random initial guess
+    res = minimize(expected_value, theta0, args=(n_shots), method="Powell")
+    theta_opt = res.x
+
+    return expected_value(theta_opt, n_shots)
+
+    
+
+
+
+
+def vqe_simple_2_qubit_hamiltonian(
+        eps_00: float,
+        eps_01: float,
+        eps_10: float,
+        eps_11: float,
+        Hx: float,
+        Hz: float,
+        lmbda: float,
+        n_shots=10_000,
+    ) -> float:
+
+    c_II = (eps_00 + eps_01 + eps_10 + eps_11) / 4
+    c_IZ = (eps_00 - eps_01 + eps_10 - eps_11) / 4
+    c_ZI = (eps_00 + eps_01 - eps_10 - eps_11) / 4
+    c_ZZ = (eps_00 - eps_01 - eps_10 + eps_11) / 4
+
+    U_IZ = SWAP
+    U_ZI = np.kron(I, I)
+    U_ZZ = CX_10
+
+    U_XX = CX_10 @ np.kron(H, H)
+    U_ZZ = CX_10
+
+    def expected_value(theta: np.ndarray, n_shots: int) -> float:
+        non_interacting_energy = 0
+        interacting_energy = 0
+
+
+        ket = hardware_efficient_2_qubit_ansatz(*theta)
+
+        # Non-interacting Hamiltonian
+        non_interacting_energy += c_II
+        non_interacting_energy += c_IZ * estimate_pauli_expval(ket, U_IZ, n_shots)
+        non_interacting_energy += c_ZI * estimate_pauli_expval(ket, U_ZI, n_shots)
+        non_interacting_energy += c_ZZ * estimate_pauli_expval(ket, U_ZZ, n_shots)
+
+        # Interacting Hamiltonian
+        interacting_energy += Hx * estimate_pauli_expval(ket, U_XX, n_shots)
+        interacting_energy += Hz * estimate_pauli_expval(ket, U_ZZ, n_shots)
+
+        return non_interacting_energy + lmbda * interacting_energy
+
+
+    theta0 = np.random.rand(4) * (2 * np.pi) # Random initial guess
+    res = minimize(expected_value, theta0, args=(n_shots), method="Powell")
+    theta_opt = res.x
+
+    return expected_value(theta_opt, n_shots)
+
+
+def vqe_lipkin_J_eq_1(
+        eps: float,
+        V: float,
+        n_shots: int = 10_000,
+    ) -> float:
+
+    U_ZI = np.kron(I, I)
+    U_IZ = SWAP
+
+    U_XX = CX_10 @ np.kron(H, H)
+    U_YY = CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj())
+
+    def expected_value(theta: np.ndarray, n_shots: int) -> float:
+        term0 = 0
+        term1 = 0
+
+        ket = hardware_efficient_2_qubit_ansatz(*theta)
+
+        term0 += estimate_pauli_expval(ket, U_ZI, n_shots)
+        term0 += estimate_pauli_expval(ket, U_IZ, n_shots)
+
+        term1 += estimate_pauli_expval(ket, U_XX, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_YY, n_shots)
+
+        return eps/2 * term0 - V/2 * term1
+    
+    theta0 = np.random.rand(4) * (2 * np.pi) # Random initial guess
+    res = minimize(expected_value, theta0, args=(n_shots), method="Powell")
+    theta_opt = res.x
+
+    return expected_value(theta_opt, n_shots)
+
+def vqe_lipkin_J_eq_2(eps: float, V: float, n_shots: int = 10000, use_hea: bool = True) -> float:
+
+    U_ZIII = multi_kron(I, I, I, I)
+    U_IZII = multi_kron(SWAP, I, I)
+    U_IIZI =  multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I)
+    U_IIIZ = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, SWAP)
+
+    U_XXII = multi_kron(CX_10, I, I) @ multi_kron(H, H, I, I)
+    U_XIXI = multi_kron(CX_10, I, I) @ multi_kron(H, I, I, I) @ multi_kron(I, H, I, I) @ multi_kron(I, SWAP, I)
+    U_XIIX = multi_kron(CX_10, I, I) @ multi_kron(H, I, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, H, I) @ multi_kron(I, I, SWAP)
+    U_IXXI = multi_kron(SWAP, I, I) @ multi_kron(I, CX_10, I) @ multi_kron(I, H, H, I)
+    U_IXIX = multi_kron(SWAP, I, I) @ multi_kron(I, CX_10, I) @ multi_kron(I, H, I, I) @ multi_kron(I, I, H, I) @ multi_kron(I, I, SWAP)
+    U_IIXX = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, CX_10) @ multi_kron(I, I, H, H)
+
+    U_YYII = multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), H @ S.T.conj(), I, I)
+    U_YIYI = multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), I, I, I) @ multi_kron(I, np.kron(H @ S.T.conj(), I) @ SWAP, I)
+    U_YIIY = multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), I, I, I) @ multi_kron(I, SWAP, I) \
+                @ multi_kron(I, I, np.kron(H @ S.T.conj(), I) @ SWAP)
+    U_IYYI = multi_kron(SWAP, I, I) @ multi_kron(I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()), I)
+    U_IYIY = multi_kron(SWAP, I, I) @ multi_kron(I, CX_10 @ np.kron(H @ S.T.conj(), I), I) \
+                @ multi_kron(I, I, np.kron(H @ S.T.conj(), I) @ SWAP)
+    U_IIYY = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()))
+
+    def expval(theta: np.ndarray, n_shots: int) -> float:
+        term0 = 0
+        term1 = 0
+
+        if use_hea:
+            ket = hardware_efficient_4_qubit_ansatz(*theta)
+        else:
+            ket = repeated_hae_gate_4_qubit_ansatz(*theta)
+
+        term0 += estimate_pauli_expval(ket, U_ZIII, n_shots)
+        term0 += estimate_pauli_expval(ket, U_IZII, n_shots)
+        term0 += estimate_pauli_expval(ket, U_IIZI, n_shots)
+        term0 += estimate_pauli_expval(ket, U_IIIZ, n_shots)
+
+        term1 += estimate_pauli_expval(ket, U_XXII, n_shots)
+        term1 += estimate_pauli_expval(ket, U_XIXI, n_shots)
+        term1 += estimate_pauli_expval(ket, U_XIIX, n_shots)
+        term1 += estimate_pauli_expval(ket, U_IXXI, n_shots)
+        term1 += estimate_pauli_expval(ket, U_IXIX, n_shots)
+        term1 += estimate_pauli_expval(ket, U_IIXX, n_shots)
+
+        term1 -= estimate_pauli_expval(ket, U_YYII, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_YIYI, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_YIIY, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_IYYI, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_IYIY, n_shots)
+        term1 -= estimate_pauli_expval(ket, U_IIYY, n_shots)
+
+        return eps/2 * term0 - V/2 * term1
+    
+    if use_hea:
+        theta0 = np.random.rand(8) * (2 * np.pi) # Random initial guess
     else:
-        return -1
+        theta0 = np.random.rand(16) * (2 * np.pi)
+    res = minimize(expval, theta0, args=(n_shots), method="Powell")
+    theta_opt = res.x
+
+    return expval(theta_opt, n_shots)
 
 
-def easy_2_qubit(eps_00: float, eps_01: float, eps_10: float, eps_11: float, Hx: float, Hz: float, lmbda: float, n_shots=500) -> Callable:
+def run_vqe_simple_1_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000):
+    E1 = 0
+    E2 = 4
+    V11 = 3
+    V22 = -3
+    V_offdiag = 0.2
 
-    def expected_value(theta: list[float]) -> float:
-        psi = hardware_efficient_2_qubit(*theta)
-
-        c_II = (eps_00 + eps_01 + eps_10 + eps_11) / 4
-        c_IZ = (eps_00 - eps_01 + eps_10 - eps_11) / 4
-        c_ZI = (eps_00 + eps_01 - eps_10 - eps_11) / 4
-        c_ZZ = (eps_00 - eps_01 - eps_10 + eps_11) / 4
-
-        energies = []
-        
-        for _ in range(n_shots):
-            noninteracting_energy = 0
-            interacting_energy = 0
-
-            # non-interacting circuits
-            # I ⨂ I
-            noninteracting_energy += c_II
-
-            # Z ⨂ I
-            measurement = measure_qubit_one(psi)
-            noninteracting_energy += c_ZI * Z_measurement_to_energy(measurement)
-
-            # I ⨂ Z
-            measurement_basis = SWAP @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            noninteracting_energy += c_IZ * Z_measurement_to_energy(measurement)
-
-            # Z ⨂ Z
-            measurement_basis = CX_10 @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            noninteracting_energy += c_ZZ * Z_measurement_to_energy(measurement)
-
-            # interacting circuits
-
-            # Hx term, X ⨂ X
-            measurement_basis = CX_10 @ np.kron(H, H) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += Hx * Z_measurement_to_energy(measurement)
-
-            # Hz term, Z ⨂ Z
-            measurement_basis = CX_10 @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += Hz * Z_measurement_to_energy(measurement)
-
-            total_energy = noninteracting_energy + lmbda * interacting_energy
-            energies.append(total_energy)
-        return np.mean(energies)
-    
+    energy = vqe_simple_1_qubit_hamiltonian(
+        E1,
+        E2,
+        V11,
+        V22,
+        V_offdiag,
+        lmbda,
+        n_shots=n_shots,
+    )
+    return energy
 
 
-    
-    res = minimize(expected_value, [0, 0, 0, 0], method='Powell')
-    return res.fun
-    
 
-def lipkin_model_small(eps, V, n_shots=500):
-
-    def expected_value(theta: list[float]) -> float:
-        psi = hardware_efficient_2_qubit(*theta)
-        energies = []
-
-
-        for _ in range(n_shots):
-            non_interacting_energy = 0
-            interacting_energy = 0
-
-            # non-interacting terms
-
-            # Z ⨂ I
-            measurement = measure_qubit_one(psi)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ Z
-            measurement_basis = SWAP @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-
-            # Interacting terms
-
-            # X ⨂ X
-            measurement_basis = CX_10 @ np.kron(H, H) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-            # Y ⨂ Y
-            measurement_basis = CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            total_energy = non_interacting_energy + interacting_energy
-            energies.append(total_energy)
-        return np.mean(energies)
-    
-  
-    
-    res = minimize(expected_value, [0, 0, 0, 0], method='powell')
-    return res.fun
-
-
-def lipkin_model_big(eps, V, n_shots=500):
-    
-    def expected_value(theta: list[float]) -> float:
-        psi = hardware_efficient_4_qubit(*theta)
-        energies = []
-
-        for _ in range(n_shots):
-            non_interacting_energy = 0
-            interacting_energy = 0
-
-            # Non-interacting terms
-
-            # Z ⨂ I ⨂ I ⨂ I
-            measurement = measure_qubit_one(psi)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ Z ⨂ I ⨂ I
-            measurement_basis = multi_kron(SWAP, I, I) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ I ⨂ Z ⨂ I
-            measurement_basis = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ I ⨂ I ⨂ Z
-            measurement_basis = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, SWAP) @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            non_interacting_energy += eps / 2 * Z_measurement_to_energy(measurement)
-
-
-            # Interacting terms
-
-            # X ⨂ X ⨂ I ⨂ I
-            circuit = multi_kron(CX_10, I, I) @ multi_kron(H, H, I, I)
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-
-            # X ⨂ I ⨂ X ⨂ I
-            circuit = multi_kron(CX_10, I, I) @ multi_kron(H, I, I, I) @ multi_kron(I, H, I, I) @ multi_kron(I, SWAP, I)
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-            # X ⨂ I ⨂ I ⨂ X
-            circuit = (
-                multi_kron(CX_10, I, I) @ multi_kron(H, I, I, I)
-                @ multi_kron(I, SWAP, I)
-                @ multi_kron(I, I, H, I) @ multi_kron(I, I, SWAP)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ X ⨂ X ⨂ I
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, CX_10, I) @ multi_kron(I, H, H, I)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ X ⨂ I ⨂ X
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, CX_10, I) @ multi_kron(I, H, I, I)
-                @ multi_kron(I, I, H, I) @ multi_kron(I, I, SWAP)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ I ⨂ X ⨂ X
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, SWAP, I)
-                @ multi_kron(I, I, CX_10) @ multi_kron(I, I, H, H)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += - V / 2 * Z_measurement_to_energy(measurement)
-
-
-            # Y ⨂ Y ⨂ I ⨂ I
-            circuit = multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), H @ S.T.conj(), I, I)
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            # Y ⨂ I ⨂ Y ⨂ I
-            circuit = (
-                multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), I, I, I)
-                @ multi_kron(I, np.kron(H @ S.T.conj(), I) @ SWAP, I)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            # Y ⨂ I ⨂ I ⨂ Y
-            circuit = (
-                multi_kron(CX_10, I, I) @ multi_kron(H @ S.T.conj(), I, I, I) #
-                @ multi_kron(I, SWAP, I)
-                @ multi_kron(I, I, np.kron(H @ S.T.conj(), I) @ SWAP)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ Y ⨂ Y ⨂ I
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()), I)
-            )
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-
-            # I ⨂ Y ⨂ I ⨂ Y
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, CX_10 @ np.kron(H @ S.T.conj(), I), I)
-                @ multi_kron(I, I, np.kron(H @ S.T.conj(), I) @ SWAP)
-            )
-
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            # I ⨂ I ⨂ Y ⨂ Y
-            circuit = (
-                multi_kron(SWAP, I, I)
-                @ multi_kron(I, SWAP, I)
-                @ multi_kron(I, I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()))
-            )
-
-            measurement_basis = circuit @ psi
-            measurement = measure_qubit_one(measurement_basis)
-            interacting_energy += V / 2 * Z_measurement_to_energy(measurement)
-
-            total_energy = non_interacting_energy + interacting_energy
-            energies.append(total_energy)
-        return np.mean(energies)
-
-    res = minimize(expected_value, [0] * 8, method='powell')
-    return res.fun
-
-
-#%%
-
-def run_easy_2_qubit(lmbda: float):
-    n_shots = 10_000
-
+def run_vqe_simple_2_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000) -> float:
     eps_00 = 0
     eps_01 = 2.5
     eps_10 = 6.5
     eps_11 = 7
     Hx = 2
     Hz = 3
-    return easy_2_qubit(eps_00, eps_01, eps_10, eps_11, Hx, Hz, lmbda, n_shots=n_shots)
 
-
-lmbda_grid = np.linspace(0, 1, 16)
-with multiprocessing.Pool(16) as pool:
-    vqe_estimates = pool.map(run_easy_2_qubit, lmbda_grid)
-
-
-write_to_csv([lmbda_grid, vqe_estimates], ['lambda', 'energy'], 'output/simple_2_qubit.csv')
-
-
-
-#%%
-
-
-def run_lipkin_model_small(V: float):
-    n_shots = 10_000
-    eps = 1
-    return lipkin_model_small(eps, V, n_shots=n_shots)
-
-
-V_grid = np.linspace(0, 1, 16)
-with multiprocessing.Pool(16) as pool:
-    vqe_estimates = pool.map(run_lipkin_model_small, V_grid)
-
-write_to_csv([V_grid, vqe_estimates], ['V', 'energy'], 'output/lipkin_small.csv')
-
-
-#%%
-def run_lipkin_model_big(V: float):
-    n_shots = 10_000
-    eps = 1
-    return lipkin_model_big(eps, V, n_shots=n_shots)
-
-V_grid = np.linspace(0, 1, 16)
-with multiprocessing.Pool(16) as pool:
-    vqe_estimates = pool.map(run_lipkin_model_big, V_grid)
-
-write_to_csv([V_grid, vqe_estimates], ['V', 'energy'], 'output/lipkin_big.csv')
-
-
-#%%
-
-
-# lmbda_grid = np.linspace(0, 1, 10)
-# vqe_estimates = np.zeros_like(lmbda_grid)
-
-# for i, lmbda in enumerate(lmbda_grid):
-#     print(f"Running for lambda = {lmbda}")
-#     eps_00 = 0
-#     eps_01 = 2.5
-#     eps_10 = 6.5
-#     eps_11 = 7
-#     Hx = 2
-#     Hz = 3
-#     vqe_estimates[i] = easy_2_qubit(0, 2.5, 6.5, 7, 2, 3, lmbda=lmbda, n_shots=1_000)
-
-
-# import matplotlib.pyplot as plt
-# plt.plot(lmbda_grid, vqe_estimates)
-# plt.xlabel(r"$\lambda$")
-# plt.ylabel("Energy")
-# plt.title("Energy vs. $\lambda$")
-# plt.show()
-
-
-
-lmbda_grid = np.linspace(0, 1, 11)
-vqe_estimates = np.zeros_like(lmbda_grid)
-
-for i, lmbda in enumerate(lmbda_grid):
-    print(f"Running for lambda = {lmbda}")
-    eps_00 = 0
-    eps_01 = 2.5
-    eps_10 = 6.5
-    eps_11 = 7
-    Hx = 2
-    Hz = 3
-    vqe_estimates[i] = lipkin_model_small(1, lmbda, n_shots=1_000)
-
-
-import matplotlib.pyplot as plt
-plt.plot(lmbda_grid, vqe_estimates)
-plt.xlabel(r"$\lambda$")
-plt.ylabel("Energy")
-plt.title("lipkin small, Energy vs. $V/\epsilon$")
-plt.show()
+    energy = vqe_simple_2_qubit_hamiltonian(
+        eps_00,
+        eps_01,
+        eps_10,
+        eps_11,
+        Hx,
+        Hz,
+        lmbda,
+        n_shots=n_shots,
+    )
+    return energy
 
 
 
 
-# res = easy_2_qubit(0, 2.5, 6.5, 7, 2, 3, lmbda=1, n_shots=1000)
-# print(res)
-
-    
-
-    # min_energy = 99999999999
-    # N_divisions = 5
-    # theta_range = np.linspace(0, 2*np.pi, N_divisions)
-    # for i in range(N_divisions):
-    #     for j in range(N_divisions):
-    #         for k in range(N_divisions):
-    #             for l in range(N_divisions):
-    #                 energy = 0
-    #                 for _ in range(100):
-    #                     theta = [theta_range[i], theta_range[j], theta_range[k], theta_range[l]]
-    #                     energy += run_circuits(theta)
-    #                 energy /= 100
-    #                 print(energy)
-    #                 # return
-    #                 min_energy = min(energy, min_energy)
-
-    # print(min_energy)
-                    
 
 
 
-    # theta_init = [0] * 4
-    # theta, grad, H_theta_expected, full_data = vqe(run_circuit_once, theta_init, iters=500, lr=0.001, n_shots=500)
 
-    # print(H_theta_expected)
-    # return theta, grad, H_theta_expected, full_data
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from time import time
+    n_shots=100_000
+
+    t_init = time()
+    lambdas = np.linspace(0, 1, 20)
+    energies_simple_1_qubit = [run_vqe_simple_1_qubit_hamiltonian(lmbda, n_shots=n_shots) for lmbda in lambdas]
+    write_to_csv([lambdas, energies_simple_1_qubit], ["lmbda", "energy"], "output/simple_1_qubit_new.csv")
+    print("Done with simple 1 qubit. Time taken: ", time() - t_init)
+
+    t_init = time()
+    lambdas = np.linspace(0, 1, 20)
+    energies_simple_2_qubit = [run_vqe_simple_2_qubit_hamiltonian(lmbda, n_shots=n_shots) for lmbda in lambdas]
+    write_to_csv([lambdas, energies_simple_2_qubit], ["lmbda", "energy"], "output/simple_2_qubit_new.csv")
+    print("Done with simple 2 qubit. Time taken: ", time() - t_init)
 
 
-# theta, grad, H_theta_expected, full_data = easy_2_qubit(0, 2.5, 6.5, 7, 2, 3)
+    t_init = time()
+    V_over_eps = np.linspace(0, 1, 20)
+    energies_J_eq_1 = [vqe_lipkin_J_eq_1(1, V, n_shots=n_shots) for V in V_over_eps]
+    write_to_csv([V_over_eps, energies_J_eq_1], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_1_new.csv")
+    print("Done with Lipkin, J=1. Time taken: ", time() - t_init)
+
+    t_init = time()
+    V_over_eps = np.linspace(0, 1, 20)
+
+    def apply_vqe_lipkin_J_eq_2(V):
+        return vqe_lipkin_J_eq_2(1, V, n_shots=n_shots, use_hea=True)
+
+    with multiprocessing.Pool(processes=16) as pool:
+        energies_J_eq_2 = pool.map(apply_vqe_lipkin_J_eq_2, V_over_eps)
+
+    write_to_csv([V_over_eps, energies_J_eq_2], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_2_new.csv")
+    print("Done with Lipkin, J=2. Time taken: ", time() - t_init)
 
 
-# %% 
-
-# print("Minimized function value:", res.fun)
 
 
-# # %%
-# thetas, H_theta_expecteds, grads = full_data
-# print(thetas)
 
-# # %%
-# # print(grads)
-# print(H_theta_expecteds)
+
+
+
+
+
