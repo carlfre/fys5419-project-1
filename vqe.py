@@ -1,4 +1,6 @@
 import multiprocessing
+from time import time
+
 
 import numpy as np
 from scipy.optimize import minimize
@@ -181,7 +183,7 @@ def vqe_lipkin_J_eq_2(eps: float, V: float, n_shots: int = 10000, use_hea: bool 
                 @ multi_kron(I, I, np.kron(H @ S.T.conj(), I) @ SWAP)
     U_IIYY = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()))
 
-    def expval(theta: np.ndarray, n_shots: int) -> float:
+    def expected_value(theta: np.ndarray, n_shots: int) -> float:
         term0 = 0
         term1 = 0
 
@@ -215,10 +217,96 @@ def vqe_lipkin_J_eq_2(eps: float, V: float, n_shots: int = 10000, use_hea: bool 
         theta0 = np.random.rand(8) * (2 * np.pi) # Random initial guess
     else:
         theta0 = np.random.rand(16) * (2 * np.pi)
-    res = minimize(expval, theta0, args=(n_shots), method="Powell")
+    res = minimize(expected_value, theta0, args=(n_shots), method="Powell")
     theta_opt = res.x
 
-    return expval(theta_opt, n_shots)
+    return expected_value(theta_opt, n_shots)
+
+
+
+def vqe_lipkin_J_eq_1_alternate(eps: float, V: float, n_shots: int = 10_000) -> float:
+    U_Z = I
+    U_X = H
+
+    def expected_value(theta: np.ndarray, n_shots: int) -> float:
+        psi_initial = one_qubit_ansatz(*theta)
+
+        energy = 0
+        energy += - eps * estimate_pauli_expval(psi_initial, U_Z, n_shots)
+        energy += - V * estimate_pauli_expval(psi_initial, U_X, n_shots)
+
+        return energy
+    
+    theta0 = np.random.rand(2) * (2 * np.pi)
+    res = minimize(expected_value, theta0, args=(n_shots), method="Powell")
+    theta_opt = res.x
+
+    return expected_value(theta_opt, n_shots)
+
+
+def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 10_000) -> float:
+
+    U_IZ = SWAP
+    U_ZI = np.kron(I, I)
+    U_ZZ = CX_10
+    U_ZZ = CX_10
+    U_IX = np.kron(H, I) @ SWAP
+    U_XX = CX_10 @ np.kron(H, H)
+    U_YY = CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj())
+    U_ZX = CX_10 @ np.kron(I, H)
+
+
+    def expected_value_block_1(theta: np.ndarray, n_shots: int) -> float:
+        psi_initial = hardware_efficient_2_qubit_ansatz(*theta)
+
+        eps_term = 0
+        W_term = 0
+        V_term = 0
+
+        eps_term += estimate_pauli_expval(psi_initial, U_ZI, n_shots)
+        eps_term += estimate_pauli_expval(psi_initial, U_ZZ, n_shots)
+
+        W_term += 1
+        W_term += estimate_pauli_expval(psi_initial, U_ZI, n_shots)
+        W_term += - estimate_pauli_expval(psi_initial, U_IZ, n_shots)
+        W_term += - estimate_pauli_expval(psi_initial, U_ZZ, n_shots)
+
+        V_term += estimate_pauli_expval(psi_initial, U_IX, n_shots)
+        V_term += estimate_pauli_expval(psi_initial, U_ZX, n_shots)
+        V_term += estimate_pauli_expval(psi_initial, U_XX, n_shots)
+        V_term += estimate_pauli_expval(psi_initial, U_YY, n_shots)
+
+
+        return -eps * eps_term + W * W_term + np.sqrt(6) * V / 2 * V_term
+    
+
+    U_Z = I
+    U_X = H
+    def expected_value_block_2(theta: np.ndarray, n_shots: int) -> float:
+        psi_initial = one_qubit_ansatz(*theta)
+
+        energy = 0
+        energy += 3 * W
+        energy += - eps * estimate_pauli_expval(psi_initial, U_Z, n_shots)
+        energy += 3 * V * estimate_pauli_expval(psi_initial, U_X, n_shots)
+
+        return energy
+    
+
+    theta0_block1 = np.random.rand(4) * (2 * np.pi)
+    theta0_block2 = np.random.rand(2) * (2 * np.pi)
+
+    res_block1 = minimize(expected_value_block_1, theta0_block1, args=(n_shots), method="Powell")
+    res_block2 = minimize(expected_value_block_2, theta0_block2, args=(n_shots), method="Powell")
+
+    theta_opt_block1 = res_block1.x
+    theta_opt_block2 = res_block2.x
+
+    min_energy_block1 = expected_value_block_1(theta_opt_block1, n_shots)
+    min_energy_block2 = expected_value_block_2(theta_opt_block2, n_shots)
+
+    return min(min_energy_block1, min_energy_block2)
+
 
 
 def run_vqe_simple_1_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000):
@@ -264,13 +352,7 @@ def run_vqe_simple_2_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000) -> f
 
 
 
-
-
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from time import time
+def run_vqes():
     n_shots=100_000
 
     t_init = time()
@@ -303,6 +385,31 @@ if __name__ == "__main__":
 
     write_to_csv([V_over_eps, energies_J_eq_2], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_2_new.csv")
     print("Done with Lipkin, J=2. Time taken: ", time() - t_init)
+
+
+
+
+def run_vqes_alternate():
+    n_shots = 100_000
+
+    t_init = time()
+    V_over_eps = np.linspace(0, 1, 20)
+    energies_J_eq_1 = [vqe_lipkin_J_eq_1_alternate(1, V, n_shots=n_shots) for V in V_over_eps]
+    write_to_csv([V_over_eps, energies_J_eq_1], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_1_alternate.csv")
+    print("Done with Lipkin, J=1. Time taken: ", time() - t_init)
+
+    t_init = time()
+    V_over_eps = np.linspace(0, 1, 20)
+    energies_J_eq_2 = [vqe_lipkin_J_eq_2_alternate(1, V, 0, n_shots=n_shots) for V in V_over_eps]
+    write_to_csv([V_over_eps, energies_J_eq_2], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_2_alternate.csv")
+    print("Done with Lipkin, J=2. Time taken: ", time() - t_init)
+
+
+
+
+
+if __name__ == "__main__":
+    run_vqes_alternate()
 
 
 
