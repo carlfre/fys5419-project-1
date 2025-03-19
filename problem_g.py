@@ -30,47 +30,43 @@ def lipkin_hamiltonian(J, V):
     
 def SparseLipkinHamiltonian(J, V): 
     epsilon = 0.5
-    #Have to convert the Hamiltonian to a SparsePauliOp to use VQE.
+    #have to convert the Hamiltonian to a SparsePauliOp to use VQE.
     if J == 1:
-        # Create the SparsePauliOp
         H_op = SparsePauliOp.from_operator(lipkin_hamiltonian(J, V))
     elif J == 2:
-        # Create the SparsePauliOp
         H_op = SparsePauliOp.from_operator(lipkin_hamiltonian(J, V))
     return H_op 
 
-# Set up the VQE algorithm
 
-# Parameters
 estimator = Estimator()
-backend = Aer.get_backend('statevector_simulator')
+backend = Aer.get_backend("statevector_simulator")
 optimizer = ADAM(maxiter=5000)
 
 
 def problem_g():
     # get numpy and our code data
-    numpy_data_small = np.genfromtxt("output/np_lipkin_small.csv", delimiter=",", skip_header=1)
-    numpy_data_big = np.genfromtxt("output/np_lipkin_big.csv", delimiter=",", skip_header=1)
+    np_data_J_eq_1 = np.genfromtxt("output/np_lipkin_small.csv", delimiter=",", skip_header=1)
+    np_data_J_eq_2 = np.genfromtxt("output/np_lipkin_big.csv", delimiter=",", skip_header=1)
 
-    lambdas_np_small = numpy_data_small[:, 0]
-    lambdas_np_big = numpy_data_big[:, 0]
-    energy_np_small = numpy_data_small[:, 1]
-    energy_np_big = numpy_data_big[:, 1]
+    np_lambdas_J_eq_1 = np_data_J_eq_1[:, 0]
+    np_lambdas_J_eq_2 = np_data_J_eq_2[:, 0]
+    np_energy_J_eq_1 = np_data_J_eq_1[:, 1]
+    np_energy_J_eq_2 = np_data_J_eq_2[:, 1]
 
-    our_code_data_small = np.genfromtxt("output/lipkin_small.csv", delimiter=",", skip_header=1)
-    our_code_data_big = np.genfromtxt("output/lipkin_big.csv", delimiter=",", skip_header=1)
+    our_code_data_J_eq_1 = np.genfromtxt("output/lipkin_J_eq_1_alternate.csv", delimiter=",", skip_header=1)
+    our_code_data_J_eq_2 = np.genfromtxt("output/lipkin_J_eq_2_alternate.csv", delimiter=",", skip_header=1)
 
-    lambdas_our_code_small = our_code_data_small[:, 0]
-    lambdas_our_code_big = our_code_data_big[:, 0]
-    energy_our_code_small = our_code_data_small[:, 1]
-    energy_our_code_big = our_code_data_big[:, 1]
+    our_code_lambdas_J_eq_1 = our_code_data_J_eq_1[:, 0]
+    our_code_lambdas_J_eq_2 = our_code_data_J_eq_2[:, 0]
+    our_code_energy_J_eq_1 = our_code_data_J_eq_1[:, 1]
+    our_code_energy_J_eq_2 = our_code_data_J_eq_2[:, 1]
 
     # make plot and place points on top
-    plt.plot(lambdas_np_small, energy_np_small, label=r"$J = 1$ with NumPy", color="seagreen", zorder=1)
-    plt.plot(lambdas_np_big, energy_np_big, label=r"$J = 2$ with NumPy", color="royalblue", zorder=2)
+    plt.plot(np_lambdas_J_eq_1, np_energy_J_eq_1, label=r"$J = 1$ with NumPy", color="seagreen", zorder=1)
+    plt.plot(np_lambdas_J_eq_1, np_energy_J_eq_2, label=r"$J = 2$ with NumPy", color="royalblue", zorder=2)
     
-    plt.scatter(lambdas_our_code_small, energy_our_code_small, label=r"$J = 1$ with VQE (our code)", marker="x", c="coral", zorder=3)
-    plt.scatter(lambdas_our_code_big, energy_our_code_big, label=r"$J = 2$ with VQE (our code)", marker="x", c="crimson", zorder=4)
+    plt.scatter(our_code_lambdas_J_eq_1, our_code_energy_J_eq_1, label=r"$J = 1$ with VQE (our code)", marker="x", c="coral", zorder=3)
+    plt.scatter(our_code_lambdas_J_eq_2, our_code_energy_J_eq_2, label=r"$J = 2$ with VQE (our code)", marker="x", c="crimson", zorder=4)
 
     plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with NumPy methods and VQE")
     plt.xlabel(r"$\lambda$")
