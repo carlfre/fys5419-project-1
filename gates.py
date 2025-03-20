@@ -21,8 +21,6 @@ def hadamard_gate() -> np.ndarray:
 
 
 def phase_gate() -> np.ndarray:
-    #TODO: check which one we should use
-    # return np.array([[1, 0], [0, np.exp(1j * phi)]])
     return np.array([[1, 0], [0, 1j]])
 
 

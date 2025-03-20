@@ -59,7 +59,7 @@ for n, lmbda in enumerate(lambdas):
 
 
 for i in range(4):
-    plt.plot(lambdas, eigvals[i, :], c="g")
+    plt.plot(lambdas, eigvals[i, :], c="mediumorchid")
 plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = 0.4$")
 
 
@@ -79,7 +79,7 @@ plt.show()
 plt.title("Entanglement Entropy")
 plt.xlabel(r"$\lambda$")
 plt.ylabel("Entropy")
-plt.plot(lambdas, entropies)
+plt.plot(lambdas, entropies, color="deepskyblue")
 plt.axvline(x=0.4, color='r', linestyle='--', label=r"$\lambda = 0.4$")
 plt.legend()
 plt.savefig("images/problem_d_entropy.png")
