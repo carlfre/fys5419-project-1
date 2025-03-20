@@ -277,7 +277,7 @@ def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 1
         V_term += estimate_pauli_expval(psi_initial, U_YY, n_shots)
 
 
-        return -eps * eps_term + W * W_term + np.sqrt(6) * V / 2 * V_term
+        return -eps * eps_term + W * W_term - np.sqrt(6) * V / 2 * V_term
     
 
     U_Z = I
