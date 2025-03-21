@@ -7,6 +7,7 @@ from state_initialization import one_qubit_basis, bell_psi_plus
 from gates import identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, phase_gate, hadamard_gate, cnot_gate
 
 def measure_first_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
+    """Measures the first qubit of a two-qubit state in the computational basis."""
     alpha, beta, gamma, delta = state
 
     prob_0 = np.abs(alpha)**2 + np.abs(beta)**2
@@ -20,6 +21,7 @@ def measure_first_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
     
 
 def measure_second_qubit(state: np.ndarray) -> tuple[int, np.ndarray]:
+    """Measures the second qubit of a two-qubit state in the computational basis."""
     alpha, beta, gamma, delta = state
 
     prob_0 = np.abs(alpha)**2 + np.abs(gamma)**2
