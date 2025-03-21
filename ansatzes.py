@@ -22,6 +22,64 @@ def hardware_efficient_2_qubit_ansatz(theta00: float, theta01: float, theta10: f
     return circuit @ start_ket
 
 
+def complicated_2_qubit_ansatz(
+        alpha_U1: float,
+        beta_U1: float,
+        gamma_U1: float,
+        alpha_U2: float,
+        beta_U2: float,
+        gamma_U2: float,
+        alpha_V1: float,
+        beta_V1: float,
+        gamma_V1: float,
+        alpha_V2: float,
+        beta_V2: float,
+        gamma_V2: float,
+        alpha_W1: float,
+        beta_W1: float,
+        gamma_W1: float,
+        alpha_W2: float,
+        beta_W2: float,
+        gamma_W2: float,
+        alpha_Q1: float,
+        beta_Q1: float,
+        gamma_Q1: float,
+        alpha_Q2: float,
+        beta_Q2: float,
+        gamma_Q2: float,
+        ):
+    start_ket = np.array([1, 0, 0, 0])
+
+    RxU = multi_kron(RX_gate(alpha_U1), RX_gate(alpha_U2))
+    RyU = multi_kron(RY_gate(beta_U1), RY_gate(beta_U2))
+    RzU = multi_kron(RY_gate(gamma_U1), RY_gate(gamma_U2))
+
+    U = RzU @ RyU @ RxU
+
+    RxV = multi_kron(RX_gate(alpha_V1), RX_gate(alpha_V2))
+    RyV = multi_kron(RY_gate(beta_V1), RY_gate(beta_V2))
+    RzV = multi_kron(RY_gate(gamma_V1), RY_gate(gamma_V2))
+
+    V = RzV @ RyV @ RxV
+
+    RxW = multi_kron(RX_gate(alpha_W1), RX_gate(alpha_W2))
+    RyW = multi_kron(RY_gate(beta_W1), RY_gate(beta_W2))
+    RzW = multi_kron(RY_gate(gamma_W1), RY_gate(gamma_W2))
+
+    W = RzW @ RyW @ RxW
+
+    RxQ = multi_kron(RX_gate(alpha_Q1), RX_gate(alpha_Q2))
+    RyQ = multi_kron(RY_gate(beta_Q1), RY_gate(beta_Q2))
+    RzQ = multi_kron(RY_gate(gamma_Q1), RY_gate(gamma_Q2))
+
+    Q = RzQ @ RyQ @ RxQ
+
+    CNOT = cnot_gate(first_is_control=True)
+
+    circuit = Q @ CNOT @ W @ CNOT @ V @ CNOT @ U
+
+    return circuit @ start_ket
+
 def hardware_efficient_4_qubit_ansatz(theta00: float, theta01: float, theta10: float, theta11: float, theta20: float, theta21: float, theta30: float, theta31: float) -> np.ndarray:
     start_ket = np.zeros(2**4)
     start_ket[0] = 1

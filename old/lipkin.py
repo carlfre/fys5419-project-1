@@ -9,7 +9,6 @@ Z = pauli_z_gate()
 I = identity_gate()
 
 def single_particle_term(eps: float, N: int) -> np.ndarray:
-
     ssum = 0
     list_of_identities = [I for _ in range(N)]
     for i in range(N):
@@ -127,8 +126,8 @@ for i, Vi in enumerate(V_vals):
 
 
 
-for i in range(16):
-    plt.plot(V_vals, all_eigvals[:, i], label=f"E_{i}")
+# for i in range(16):
+plt.plot(V_vals, all_eigvals[:, 0], label=f"E_{i}")
 plt.legend()
 plt.show()
 

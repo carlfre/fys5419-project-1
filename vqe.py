@@ -1,20 +1,27 @@
 import multiprocessing
 from time import time
+from typing import Literal
 
 
 import numpy as np
 from scipy.optimize import minimize
 
 from gates import multi_kron, identity_gate, pauli_x_gate, pauli_y_gate, pauli_z_gate, hadamard_gate, SWAP_gate, CX_10_gate, phase_gate
-from ansatzes import one_qubit_ansatz, hardware_efficient_2_qubit_ansatz, hardware_efficient_4_qubit_ansatz, repeated_hae_gate_4_qubit_ansatz
+from ansatzes import one_qubit_ansatz, hardware_efficient_2_qubit_ansatz, hardware_efficient_4_qubit_ansatz, repeated_hae_gate_4_qubit_ansatz, complicated_2_qubit_ansatz
 from utils import write_to_csv
 
 I, X, Y, Z, H, SWAP, CX_10, S = identity_gate(), pauli_x_gate(), pauli_y_gate(), pauli_z_gate(), hadamard_gate(), SWAP_gate(), CX_10_gate(), phase_gate()
 
 
 def measure_first_qubit(ket: np.ndarray, n_shots: int) -> np.ndarray:
-    """Measures the first qubit of a collection of states
+    """Measures the first qubit of a state ket, n_shots times.
 
+    Args:
+        ket (np.ndarray): State to measure
+        n_shots (int): Number of measurements to make
+
+    Returns:
+        np.ndarray: Array of 0s and 1s, representing the measurement outcomes
     """
     dim = ket.shape[0]
     probs = np.abs(ket)**2
@@ -22,12 +29,30 @@ def measure_first_qubit(ket: np.ndarray, n_shots: int) -> np.ndarray:
     uniform_samples = np.random.rand(n_shots)
     return np.where(uniform_samples < first_qubit_eq_0_prob, 0, 1)
 
-def measurement_to_energy(measurements: np.ndarray):
+def measurement_to_energy(measurements: np.ndarray) -> float:
+    """Converts an array of measurements to a <Z> expectation value
+
+    Args:
+        measurements (np.ndarray): array of measurements
+
+    Returns:
+        float: energy estimate
+    """
     return -2* measurements.mean() + 1
 
 
 
 def estimate_pauli_expval(psi_initial: np.ndarray, U: np.ndarray, n_shots: int) -> float:
+    """_summary_
+
+    Args:
+        psi_initial (np.ndarray): _description_
+        U (np.ndarray): _description_
+        n_shots (int): _description_
+
+    Returns:
+        float: _description_
+    """
     measurements = measure_first_qubit(U @ psi_initial, n_shots)
     return measurement_to_energy(measurements)
 
@@ -41,6 +66,20 @@ def vqe_simple_1_qubit_hamiltonian(
     lmbda: float,
     n_shots: int = 10_000,
 ) -> float:
+    """Runs VQE on a simple 1 qubit Hamiltonian
+    
+    Args:
+        E1 (float): Non-interacting energy
+        E2 (float): Non-interacting energy
+        V11 (float): Interacting Hamiltonian parameter
+        V22 (float): Interacting Hamiltonian parameter
+        V_offdiag (float): Interacting Hamiltonian parameter
+        lmbda (float): Interaction strength
+        n_shots (int, optional): number of measurements to make. Defaults to 10_000.
+
+    Returns:
+        float: Estimated ground state energy.
+    """
     
     Eps = (E1 + E2) / 2
     omega = (E1 - E2) / 2
@@ -88,6 +127,21 @@ def vqe_simple_2_qubit_hamiltonian(
         lmbda: float,
         n_shots=10_000,
     ) -> float:
+    """Runs VQE on a simple 2 qubit Hamiltonian
+
+    Args:
+        eps_00 (float): Non-interacting energy
+        eps_01 (float): Non-interacting energy
+        eps_10 (float): Non-interacting energy
+        eps_11 (float): Non-interacting energy
+        Hx (float): Interacting Hamiltonian parameter
+        Hz (float): Interacting Hamiltonian parameter
+        lmbda (float): Interaction strength
+        n_shots (int, optional): number of measurements to make. Defaults to 10_000.
+
+    Returns:
+        float: Estimated ground state energy.
+    """
 
     c_II = (eps_00 + eps_01 + eps_10 + eps_11) / 4
     c_IZ = (eps_00 - eps_01 + eps_10 - eps_11) / 4
@@ -133,6 +187,7 @@ def vqe_lipkin_J_eq_1(
         V: float,
         n_shots: int = 10_000,
     ) -> float:
+    """Old implementation of VQE for J=1 Lipkin model. Uses inefficient encoding."""
 
     U_ZI = np.kron(I, I)
     U_IZ = SWAP
@@ -161,6 +216,7 @@ def vqe_lipkin_J_eq_1(
     return expected_value(theta_opt, n_shots)
 
 def vqe_lipkin_J_eq_2(eps: float, V: float, n_shots: int = 10000, use_hea: bool = True) -> float:
+    """Old implementation of VQE for J=2 Lipkin model. Uses inefficient encoding."""
 
     U_ZIII = multi_kron(I, I, I, I)
     U_IZII = multi_kron(SWAP, I, I)
@@ -225,6 +281,16 @@ def vqe_lipkin_J_eq_2(eps: float, V: float, n_shots: int = 10000, use_hea: bool 
 
 
 def vqe_lipkin_J_eq_1_alternate(eps: float, V: float, n_shots: int = 10_000) -> float:
+    """Runs VQE on J=1 Lipkin model, using (J) encoding from Lipkin paper.
+
+    Args:
+        eps (float): scaling factor for the non-interacting part of the Hamiltonian
+        V (float): scaling factor the H1 term of the Hamiltonian
+        n_shots (int, optional): number of measurements to make of state. Defaults to 10_000.
+
+    Returns:
+        float: _description_
+    """
     U_Z = I
     U_X = H
 
@@ -244,11 +310,29 @@ def vqe_lipkin_J_eq_1_alternate(eps: float, V: float, n_shots: int = 10_000) -> 
     return expected_value(theta_opt, n_shots)
 
 
-def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 10_000) -> float:
+def vqe_lipkin_J_eq_2_alternate(
+        eps: float,
+        V: float,
+        W: float,
+        n_shots: int = 10_000,
+        ansatz: Literal["hardware_efficient_ansatz", "big_ansatz"] = "hardware_efficient_ansatz"
+    ) -> float:
+    """Runs VQE on J=2 Lipkin model, using (J) encoding from Lipkin paper.
+
+    Args:
+        eps (float): scaling factor for the non-interacting part of the Hamiltonian
+        V (float): scaling factor the H1 term of the Hamiltonian
+        W (float): scaling factor for the H2 term of the Hamiltonian
+        n_shots (int, optional): number of measurements to make of state. Defaults to 10_000.
+        ansatz (Literal['hardware_efficient_ansatz' 'big_ansatz'], optional): Which ansatz to use. Defaults to "hardware_efficient_ansatz".
+
+
+    Returns:
+        float: Ground state energy estimate
+    """
 
     U_IZ = SWAP
     U_ZI = np.kron(I, I)
-    U_ZZ = CX_10
     U_ZZ = CX_10
     U_IX = np.kron(H, I) @ SWAP
     U_XX = CX_10 @ np.kron(H, H)
@@ -256,8 +340,15 @@ def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 1
     U_ZX = CX_10 @ np.kron(I, H)
 
 
+
     def expected_value_block_1(theta: np.ndarray, n_shots: int) -> float:
-        psi_initial = hardware_efficient_2_qubit_ansatz(*theta)
+        match ansatz:
+            case "hardware_efficient_ansatz":
+                psi_initial = hardware_efficient_2_qubit_ansatz(*theta)
+            case "big_ansatz":
+                psi_initial = complicated_2_qubit_ansatz(*theta)
+            case _:
+                raise ValueError("Invalid ansatz")
 
         eps_term = 0
         W_term = 0
@@ -277,7 +368,7 @@ def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 1
         V_term += estimate_pauli_expval(psi_initial, U_YY, n_shots)
 
 
-        return -eps * eps_term + W * W_term - np.sqrt(6) * V / 2 * V_term
+        return -eps * eps_term - W * W_term - np.sqrt(6) * V / 2 * V_term
     
 
     U_Z = I
@@ -286,14 +377,18 @@ def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 1
         psi_initial = one_qubit_ansatz(*theta)
 
         energy = 0
-        energy += 3 * W
+        energy += - 3 * W
         energy += - eps * estimate_pauli_expval(psi_initial, U_Z, n_shots)
-        energy += 3 * V * estimate_pauli_expval(psi_initial, U_X, n_shots)
+        energy += - 3 * V * estimate_pauli_expval(psi_initial, U_X, n_shots)
 
         return energy
     
 
-    theta0_block1 = np.random.rand(4) * (2 * np.pi)
+    match ansatz:
+        case "hardware_efficient_ansatz":
+            theta0_block1 = np.random.rand(4) * (2 * np.pi)
+        case "big_ansatz":
+            theta0_block1 = np.random.rand(24) * (2 * np.pi)
     theta0_block2 = np.random.rand(2) * (2 * np.pi)
 
     res_block1 = minimize(expected_value_block_1, theta0_block1, args=(n_shots), method="Powell")
@@ -310,6 +405,7 @@ def vqe_lipkin_J_eq_2_alternate(eps: float, V: float, W: float, n_shots: int = 1
 
 
 def run_vqe_simple_1_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000):
+    """Sets parameters and runs VQE on the simple 1 qubit Hamiltonian"""
     E1 = 0
     E2 = 4
     V11 = 3
@@ -330,6 +426,7 @@ def run_vqe_simple_1_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000):
 
 
 def run_vqe_simple_2_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000) -> float:
+    """Sets parameters and runs VQE on the simple 2 qubit Hamiltonian"""
     eps_00 = 0
     eps_01 = 2.5
     eps_10 = 6.5
@@ -390,6 +487,8 @@ def run_vqes():
 
 
 def run_vqes_alternate():
+    """Runs vqe for the lipkin model, using the clever encoding (ie. we need smaller circuits.)"""
+
     n_shots = 100_000
 
     t_init = time()
@@ -400,11 +499,15 @@ def run_vqes_alternate():
 
     t_init = time()
     V_over_eps = np.linspace(0, 1, 20)
-    energies_J_eq_2 = [vqe_lipkin_J_eq_2_alternate(1, V, 0, n_shots=n_shots) for V in V_over_eps]
+    energies_J_eq_2 = [vqe_lipkin_J_eq_2_alternate(1, V, 0, n_shots=n_shots, ansatz="hardware_efficient_ansatz") for V in V_over_eps]
     write_to_csv([V_over_eps, energies_J_eq_2], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_2_alternate.csv")
     print("Done with Lipkin, J=2. Time taken: ", time() - t_init)
 
-
+    t_init = time()
+    V_over_eps = np.linspace(0, 1, 20)
+    energies_J_eq_2 = [vqe_lipkin_J_eq_2_alternate(1, V, 0, n_shots=n_shots, ansatz="big_ansatz") for V in V_over_eps]
+    write_to_csv([V_over_eps, energies_J_eq_2], ["V_over_eps", "energy_over_eps"], "output/lipkin_J_eq_2_alternate_complicated_ansatz.csv")
+    print("Done with Lipkin, J=2. Time taken: ", time() - t_init)
 
 
 

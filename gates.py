@@ -21,8 +21,6 @@ def hadamard_gate() -> np.ndarray:
 
 
 def phase_gate() -> np.ndarray:
-    #TODO: check which one we should use
-    # return np.array([[1, 0], [0, np.exp(1j * phi)]])
     return np.array([[1, 0], [0, 1j]])
 
 
@@ -72,6 +70,7 @@ def SWAP_gate() -> np.ndarray:
 
 
 def multi_kron(*mats: np.ndarray) -> np.ndarray:
+    """Tensor product of multiple matrices."""
     result = mats[0]
     for mat in mats[1:]:
         result = np.kron(result, mat)
@@ -84,12 +83,28 @@ if __name__ == "__main__":
     I = np.eye(2)
     Z = pauli_z_gate()
     Y = pauli_y_gate()
+    H = hadamard_gate()
 
 
 
     CX_10 = CX_10_gate()
     SWAP = SWAP_gate()
+    S = phase_gate()
 
 
-    print(SWAP.T.conj() @ np.kron(I, Z) @ SWAP)
-    # print(np.kron(X, Z))
+    # print(SWAP.T.conj() @ np.kron(I, Z) @ SWAP)
+
+    #  print(np.kron(X, Z))
+    
+
+    np.set_printoptions(precision=1)
+    np.set_printoptions(linewidth=np.inf)
+    mat = multi_kron(I, I, Y, Y)
+
+    U = multi_kron(SWAP, I, I) @ multi_kron(I, SWAP, I) @ multi_kron(I, I, CX_10 @ np.kron(H @ S.T.conj(), H @ S.T.conj()))
+            
+
+
+    # print( U @ mat @ U.T.conj())
+
+    print(np.linalg.norm(U @ mat @ U.T.conj() - multi_kron(Z, I, I, I)))
