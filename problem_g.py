@@ -51,6 +51,9 @@ optimizer = ADAM(maxiter=5000)
 
 
 def problem_g():
+
+    # Harware-efficient ansatz
+
     # get numpy and our code data
     np_data_J_eq_1 = np.genfromtxt("output/np_lipkin_J_eq_1.csv", delimiter=",", skip_header=1)
     np_data_J_eq_2 = np.genfromtxt("output/np_lipkin_J_eq_2.csv", delimiter=",", skip_header=1)
@@ -75,12 +78,36 @@ def problem_g():
     plt.scatter(our_code_lambdas_J_eq_1, our_code_energy_J_eq_1, label=r"$J = 1$ with VQE (our code)", marker="x", c="coral", zorder=3)
     plt.scatter(our_code_lambdas_J_eq_2, our_code_energy_J_eq_2, label=r"$J = 2$ with VQE (our code)", marker="x", c="crimson", zorder=4)
 
-    plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with NumPy methods and VQE")
-    plt.xlabel(r"$\lambda$")
-    plt.ylabel("Eigenenergy")
+    plt.title(r"Lipkin Ground State Energy vs VQE Estimate (HEA)")
+    plt.ylabel(r"$E/\epsilon$")
+    plt.xlabel(r"$V/\epsilon$")
     plt.legend()
-    plt.savefig("images/problem_g_our_code_vs_numpy.png")
+    plt.savefig("images/problem_g_our_code_vs_numpy_hea.png")
     plt.show()
+
+
+    # Complicated ansatz
+    np_data_J_eq_2 = np.genfromtxt("output/np_lipkin_J_eq_2.csv", delimiter=",", skip_header=1)
+
+
+
+    our_code_data_J_eq_2 = np.genfromtxt("output/lipkin_J_eq_2_alternate_complicated_ansatz.csv", delimiter=",", skip_header=1)
+
+    our_code_lambdas_J_eq_2 = our_code_data_J_eq_2[:, 0]
+    our_code_energy_J_eq_2 = our_code_data_J_eq_2[:, 1]
+
+    # make plot and place points on top
+    plt.plot(np_lambdas_J_eq_1, np_energy_J_eq_2, label=r"$J = 2$ with NumPy", color="royalblue", zorder=2)
+    
+    plt.scatter(our_code_lambdas_J_eq_2, our_code_energy_J_eq_2, label=r"$J = 2$ with VQE (our code)", marker="x", c="crimson", zorder=4)
+
+    plt.title(r"Lipkin Ground State Energy vs VQE Estimate (Complicated Ansatz)")
+    plt.ylabel(r"$E/\epsilon$")
+    plt.xlabel(r"$V/\epsilon$")
+    plt.legend()
+    plt.savefig("images/problem_g_our_code_vs_numpy_complicated_ansatz.png")
+    plt.show()
+
 
     # plot with Qiskit results only (uncomment if changes need to be made, takes time to run)
     interaction_strengths = np.linspace(0, 1, 10)
@@ -109,9 +136,9 @@ def problem_g():
     # plot of qiskit results
     plt.plot(interaction_strengths, eigenval_J1, label="J = 1", color="seagreen")
     plt.plot(interaction_strengths, eigenval_J2, label="J = 2", color="royalblue")
-    plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with Qiskit")
-    plt.xlabel(r"$\lambda$")
-    plt.ylabel("Eigenenergy")
+    plt.title(r"Lipkin Ground State Energy vs VQE Estimate, using Qiskit")
+    plt.xlabel(r"$V/\epsilon$")
+    plt.ylabel(r"$E/\epsilon$")
     plt.legend()
     plt.savefig("images/problem_g_qiskit.png")
     plt.show()

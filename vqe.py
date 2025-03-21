@@ -428,7 +428,7 @@ def run_vqe_simple_1_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000):
 
 
 def run_vqe_simple_2_qubit_hamiltonian(lmbda: float, n_shots: int = 10_000) -> float:
-    """Sets parameters and runs VQE on the simple 2 qubit Hamiltonian"""
+    """Sets parameters and runs VQE on the simple 2 qubit Hamiltonian."""
     eps_00 = 0
     eps_01 = 2.5
     eps_10 = 6.5
@@ -467,6 +467,8 @@ def run_vqes():
     print("Done with simple 2 qubit. Time taken: ", time() - t_init)
 
 
+
+    # Below Lipkin results are not used in report. But they are valid, they just use another encoding.
     t_init = time()
     V_over_eps = np.linspace(0, 1, 20)
     energies_J_eq_1 = [vqe_lipkin_J_eq_1(1, V, n_shots=n_shots) for V in V_over_eps]
@@ -489,7 +491,9 @@ def run_vqes():
 
 
 def run_vqes_alternate():
-    """Runs vqe for the lipkin model, using the clever encoding (ie. we need smaller circuits.)"""
+    """Runs vqe for the lipkin model, using the clever encoding (ie. we need smaller circuits.)
+    
+    These are the results we use in the report"""
 
     n_shots = 100_000
 
@@ -514,6 +518,9 @@ def run_vqes_alternate():
 
 
 if __name__ == "__main__":
+    run_vqes()
+
+    # The Lipkin results from the below simulations are the ones we use in the report.
     run_vqes_alternate()
 
 
