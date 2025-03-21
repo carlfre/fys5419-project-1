@@ -1,14 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-from gates import pauli_x_gate, pauli_y_gate, pauli_z_gate
 from utils import write_to_csv
 
-
-sigma_x = pauli_x_gate()
-sigma_y = pauli_y_gate()
-sigma_z = pauli_z_gate()
-
+# defining Hamiltonian
 E1 = 0
 E2 = 4
 
@@ -28,19 +22,29 @@ def problem_b() -> None:
 
     lower_eigs = []
     upper_eigs = []
+    component_0 = []
+    component_1 = []
 
     for lmbda in lambdas:
         H = H0 + lmbda * HI
-        eigvals = np.linalg.eigvals(H)
+        eigvals, eigvecs = np.linalg.eig(H)
+
         lower_eigs.append(np.min(eigvals))
         upper_eigs.append(np.max(eigvals))
-        print(eigvals)
+        
+        min_eigenvalue_index = np.argmin(eigvals)
+        min_eigenvector = eigvecs[:, min_eigenvalue_index]
+    
+        component_0.append(min_eigenvector[0]) 
+        component_1.append(min_eigenvector[1])
 
-    plt.plot(lambdas, lower_eigs, label="Lower eigenvalue")
-    plt.plot(lambdas, upper_eigs, label="Upper eigenvalue")
+    # getting rid of degree of freedom from choice of phase
+    component_0[0] *= -1
 
+    # upper and lower eigenvalues
+    plt.plot(lambdas, upper_eigs, label="Upper eigenvalue", color="teal")
+    plt.plot(lambdas, lower_eigs, label="Lower eigenvalue", color="mediumaquamarine")
     plt.axvline(x=2/3, color='r', linestyle='--', label=r"$\lambda = \frac{2}{3}$")
-
     plt.title("Eigenenergy vs. $\\lambda$")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
@@ -48,6 +52,18 @@ def problem_b() -> None:
     plt.savefig("images/problem_b.png")
     plt.show()
 
-    write_to_csv([lambdas, lower_eigs], ["lambdas", "lower_eigs"], "output/np_1_qubit.csv")    
-       
+    # save eigenvalue data for plotting in problem c
+    write_to_csv([lambdas, lower_eigs], ["lambdas", "lower_eigs"], "output/np_simple_1_qubit.csv")    
+    
+    # eigenvector component plot
+    plt.plot(lambdas, component_0, label="Contribution of |0⟩", color="plum")
+    plt.plot(lambdas, component_1, label="Contribution of |1⟩", color="darkmagenta")
+    plt.axvline(x=2/3, color='r', linestyle='--', label=r"$\lambda = \frac{2}{3}$")
+    plt.xlabel(r"$\lambda$")
+    plt.ylabel("Component Value")
+    plt.title(r"Eigenvector Components with Varying $\lambda$")
+    plt.legend()
+    plt.savefig("images/problem_b_eigenvectors.png")
+    plt.show()
+
 problem_b()

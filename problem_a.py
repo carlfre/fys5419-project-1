@@ -72,47 +72,22 @@ def problem_a() -> None:
         second_qubit, after_second_measurement = measure_second_qubit(after_first_measurement)
         measurements[(first_qubit, second_qubit)] += 1
 
-    # Convert the tuple keys into string labels for better display in the plot
     labels = [str(key) for key in measurements.keys()]
     counts = list(measurements.values())
 
-    # Create the bar chart
     plt.figure(figsize=(8, 6))
     bars = plt.bar(labels, counts, color='skyblue')
 
-    # Adding text labels on top of each bar for clarity
     for bar in bars:
         yval = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2, yval + 0.5, f'{int(yval)}', ha='center', va='bottom')
 
-    # Add title and axis labels
     plt.title("Measurement Results Histogram")
     plt.xlabel("Measurement Outcome (First Qubit, Second Qubit)")
     plt.ylabel("Counts")
-    plt.ylim(0, max(counts) * 1.2)  # Add some headroom for text labels
+    plt.ylim(0, max(counts) * 1.2)
     plt.savefig("images/problem_a.png")
-    # Show the plot
     plt.show()
-
-    
-
-
-
-    # print(f"final state = {after_second_measurement}")
-
-    
-
-
-
-
-
-
-    
-
-
-
 
 if __name__ == "__main__":
     problem_a()
-
-# def bell_states()
