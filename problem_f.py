@@ -34,7 +34,7 @@ def problem_f() -> None:
     plt.plot(interaction_strengths, eigenval_J1, label="J = 1", color="seagreen")
     plt.plot(interaction_strengths, eigenval_J2, label="J = 2", color="royalblue")
 
-    plt.title(r"Ground State Energy for Lipkin Hamiltonians")
+    plt.title(r"Ground State Energy vs Interaction Strength for Lipkin Hamiltonians")
     plt.xlabel(r"$V/\epsilon$")
     plt.ylabel(r"$E/\epsilon$")
     plt.legend()
