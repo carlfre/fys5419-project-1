@@ -58,6 +58,11 @@ def problem_a() -> None:
             after_gate = gate @ state
             print(f"{gate_name}{ket_string} = transpose({after_gate})")
 
+            measurements = {
+                0: 0,
+                1: 0
+            }
+
     result = CNOT @ np.kron(H, H) @ psi_plus
 
     N = 1000
@@ -90,6 +95,30 @@ def problem_a() -> None:
     plt.ylim(0, max(counts) * 1.2)
     plt.savefig("images/problem_a.png")
     plt.show()
+
+
+    gate_names = ["X", "Y", "Z", "H", "S"]
+    gates = [X, Y, Z, H, S]
+
+    for name, gate in zip(gate_names, gates):
+        for ket_name, ket in zip(["|0>", "|1>"], [zero, one]):
+            after_gate = gate @ ket
+            # print(f"{name}{ket_name} = transpose({after_gate})")
+            measurements = {
+                0: 0,
+                1: 0
+            }
+
+            for i in range(1000):
+                prob_0 = np.abs(after_gate[0])**2
+                if np.random.rand() < prob_0:
+                    measurements[0] += 1
+                else:
+                    measurements[1] += 1
+
+            print(f"Measurement results for {name}{ket_name}: {measurements}")
+
+
 
 if __name__ == "__main__":
     problem_a()
