@@ -43,15 +43,17 @@ def measurement_to_energy(measurements: np.ndarray) -> float:
 
 
 def estimate_pauli_expval(psi_initial: np.ndarray, U: np.ndarray, n_shots: int) -> float:
-    """_summary_
+    """Takes in a state psi_initial, and a change of basis matrix U, outputs expectation. 
+    
+    (U is determined by theparticular Pauli string P we are evaluating expectation of)
 
     Args:
-        psi_initial (np.ndarray): _description_
-        U (np.ndarray): _description_
-        n_shots (int): _description_
+        psi_initial (np.ndarray): State vector
+        U (np.ndarray): Unitary change of basis matrix
+        n_shots (int): number of measurements to make
 
     Returns:
-        float: _description_
+        float: ground state energy estimate
     """
     measurements = measure_first_qubit(U @ psi_initial, n_shots)
     return measurement_to_energy(measurements)
