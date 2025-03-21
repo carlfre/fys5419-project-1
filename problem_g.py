@@ -2,37 +2,46 @@
 from qiskit_aer import Aer
 from qiskit.circuit.library import TwoLocal
 from qiskit_algorithms import VQE
-from qiskit_algorithms.optimizers import SPSA, SLSQP, COBYLA, NELDER_MEAD, L_BFGS_B, ADAM
+from qiskit_algorithms.optimizers import ADAM
 from qiskit.primitives import Estimator
-from qiskit.quantum_info import Operator
 from qiskit.quantum_info import SparsePauliOp
 import numpy as np
 import matplotlib.pyplot as plt
+
+from gates import pauli_x_gate, pauli_y_gate, pauli_z_gate, identity_gate
+
+X = pauli_x_gate()
+Y = pauli_y_gate()
+Z = pauli_z_gate()
+I = identity_gate()
 
 # Updated Lipkin Hamiltonian using angular momentum operators
 def lipkin_hamiltonian(J, V):
     epsilon = 1
     W = 0
     if J == 1:
-        HJ1 = np.array([[-epsilon, 0, -V],
-              [0, 0, 0],
-              [-V, 0, epsilon],])
+        # HJ1 as a Pauli string, as determined in problem f
+        HJ1 = -epsilon/2 * (np.kron(Z, I) + np.kron(Z, Z)) - V/2 * (np.kron(X, I) + np.kron(X, Z))
         return HJ1
     
     elif J == 2:
-        HJ2 = np.array([[-2*epsilon, 0, -np.sqrt(6)*V, 0, 0],
-              [0, -epsilon + 3*W, 0, -3*V, 0],
-              [-np.sqrt(6)*V, 0, 4*W, 0, -np.sqrt(6)*V],
-              [0, -3*V, 0, -epsilon + 3*W, 0],
-              [0, 0, -np.sqrt(6)*V, 0, 2*epsilon],])
+        # zero padded HJ2 so dimension is a power of 2
+        HJ2 = np.array([[-2*epsilon, 0, -np.sqrt(6)*V, 0, 0, 0, 0, 0],
+              [0, -epsilon + 3*W, 0, -3*V, 0, 0, 0, 0],
+              [-np.sqrt(6)*V, 0, 4*W, 0, -np.sqrt(6)*V, 0, 0, 0],
+              [0, -3*V, 0, -epsilon + 3*W, 0, 0, 0, 0],
+              [0, 0, -np.sqrt(6)*V, 0, 2*epsilon, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0]])
         return HJ2
     
 def SparseLipkinHamiltonian(J, V): 
     #have to convert the Hamiltonian to a SparsePauliOp to use VQE
     if J == 1:
-        H_op = SparsePauliOp.from_operator(Operator(lipkin_hamiltonian(J, V)))
+        H_op = SparsePauliOp.from_operator(lipkin_hamiltonian(J, V))
     elif J == 2:
-        H_op = SparsePauliOp.from_operator(Operator(lipkin_hamiltonian(J, V)))
+        H_op = SparsePauliOp.from_operator(lipkin_hamiltonian(J, V))
     return H_op 
 
 
@@ -82,7 +91,10 @@ def problem_g():
     eigenval_J2 = []
 
     for j, k in zip(J, qbits): 
-        ansatz = TwoLocal(num_qubits=k, rotation_blocks='ry', entanglement_blocks='cz', reps=1, entanglement='linear')
+        ansatz = TwoLocal(num_qubits=k, rotation_blocks="ry", entanglement_blocks="cz", reps=1, entanglement="linear")
+        # show ansatzes
+        # ansatz.decompose().draw("mpl")
+        # plt.show()
             
         for i in interaction_strengths:
             H_op = SparseLipkinHamiltonian(j, i)
@@ -95,8 +107,8 @@ def problem_g():
                 eigenval_J2.append(result.eigenvalue)
 
     # plot of qiskit results
-    plt.plot(interaction_strengths, eigenval_J1, label="J = 1")
-    plt.plot(interaction_strengths, eigenval_J2, label="J = 2")
+    plt.plot(interaction_strengths, eigenval_J1, label="J = 1", color="seagreen")
+    plt.plot(interaction_strengths, eigenval_J2, label="J = 2", color="royalblue")
     plt.title(r"Eigenenergy vs. $\lambda$ for Lipkin Hamiltonians with Qiskit")
     plt.xlabel(r"$\lambda$")
     plt.ylabel("Eigenenergy")
